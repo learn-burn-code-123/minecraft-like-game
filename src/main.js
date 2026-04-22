@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import "./style.css";
 
 const WIN_COINS = 20;
 const PLAYER_RADIUS = 0.38;
