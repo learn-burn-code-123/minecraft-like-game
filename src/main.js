@@ -19,7 +19,7 @@ app.innerHTML = `
   <div id="overlay" class="overlay">
     <div class="overlay-card">
       <h1>Dragon Block Adventure — 3D</h1>
-      <p>Click <strong>Play</strong>, then use your mouse to look around.</p>
+      <p>Click <strong>Play</strong>, then <strong>click the blue game area once</strong> so the mouse can steer (browsers require this).</p>
       <ul class="overlay-list">
         <li><strong>Mouse wheel</strong> — roll it to walk forward or backward (try both directions)</li>
         <li><strong>Left click</strong> — jump when your feet are on a block</li>
@@ -47,6 +47,7 @@ const canvas = document.querySelector("#game");
 const overlay = document.querySelector("#overlay");
 const hud = document.querySelector("#hud");
 const coinsEl = document.querySelector("#coins");
+const hintEl = document.querySelector("#hint");
 const winScreen = document.querySelector("#winScreen");
 const playBtn = document.querySelector("#playBtn");
 const restartBtn = document.querySelector("#restartBtn");
@@ -258,6 +259,22 @@ let jumpPressed = false;
 
 const keys = { w: false, s: false };
 
+let gameStarted = false;
+
+function pointerOverCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return (
+    e.clientX >= r.left &&
+    e.clientX <= r.right &&
+    e.clientY >= r.top &&
+    e.clientY <= r.bottom
+  );
+}
+
+function setHint(text) {
+  if (hintEl) hintEl.textContent = text;
+}
+
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -402,7 +419,7 @@ function resolveCollisions() {
 }
 
 function updatePhysics(dt) {
-  if (gameWon) return;
+  if (!gameStarted || gameWon) return;
 
   const forward = forwardFlat();
   const inputFwd = wishForward + (keys.w ? 1 : 0) - (keys.s ? 1 : 0);
@@ -462,8 +479,10 @@ function tick(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
-  updatePhysics(dt);
-  collectCoins();
+  if (gameStarted && !gameWon) {
+    updatePhysics(dt);
+    collectCoins();
+  }
 
   for (const mesh of coins) {
     if (mesh.userData.collected) continue;
@@ -479,40 +498,61 @@ function tick(now) {
 requestAnimationFrame(tick);
 
 canvas.addEventListener("click", () => {
-  if (!gameWon && document.pointerLockElement !== canvas) {
-    canvas.requestPointerLock?.();
+  if (!gameStarted || gameWon) return;
+  if (document.pointerLockElement !== canvas) {
+    canvas.requestPointerLock?.().catch(() => {
+      setHint("Move the mouse over the game to look. Space = jump.");
+    });
   }
 });
 
 playBtn.addEventListener("click", () => {
   overlay.classList.add("hidden");
   hud.classList.remove("hidden");
+  gameStarted = true;
   canvas.focus();
-  canvas.requestPointerLock?.();
+  setHint("Click the blue game once, then move the mouse. Wheel = walk. Space = jump.");
 });
 
 restartBtn.addEventListener("click", () => {
   restartGame();
-  canvas.requestPointerLock?.();
+  document.exitPointerLock?.();
+  setHint("Click the blue game once, then move the mouse.");
 });
 
 document.addEventListener("pointerlockchange", () => {
   if (document.pointerLockElement === canvas) {
-    hud.classList.remove("hidden");
+    setHint("Coins: collect 20. Wheel = walk. Left click or Space = jump. Esc = free mouse.");
+  } else if (gameStarted && !gameWon) {
+    setHint("Click the game to grab the mouse again, or move over it to look.");
+  }
+});
+
+document.addEventListener("pointerlockerror", () => {
+  if (gameStarted && !gameWon) {
+    setHint("Mouse lock blocked — move the mouse over the blue game to look. Space = jump.");
   }
 });
 
 document.addEventListener("mousemove", (e) => {
-  if (document.pointerLockElement !== canvas || gameWon) return;
-  yaw -= e.movementX * 0.0022;
-  pitch -= e.movementY * 0.0022;
+  if (!gameStarted || gameWon) return;
+
+  if (document.pointerLockElement === canvas) {
+    yaw -= e.movementX * 0.0022;
+    pitch -= e.movementY * 0.0022;
+  } else if (pointerOverCanvas(e)) {
+    yaw -= e.movementX * 0.0022;
+    pitch -= e.movementY * 0.0022;
+  }
+
   pitch = Math.max(-pitchClamp, Math.min(pitchClamp, pitch));
 });
 
-document.addEventListener(
+canvas.addEventListener(
   "wheel",
   (e) => {
-    if (document.pointerLockElement !== canvas || gameWon) return;
+    if (!gameStarted || gameWon) return;
+    if (!pointerOverCanvas(e) && document.pointerLockElement !== canvas) return;
     e.preventDefault();
     const step = (e.deltaY > 0 ? -1 : 1) * WHEEL_IMPULSE * 0.22;
     wishForward += step;
@@ -521,17 +561,18 @@ document.addEventListener(
   { passive: false }
 );
 
-document.addEventListener("mousedown", (e) => {
-  if (document.pointerLockElement !== canvas || gameWon) return;
-  if (e.button === 0) {
+canvas.addEventListener("mousedown", (e) => {
+  if (!gameStarted || gameWon) return;
+  if (e.button === 0 && document.pointerLockElement === canvas) {
     jumpPressed = true;
   }
 });
 
 document.addEventListener("keydown", (e) => {
+  if (!gameStarted || gameWon) return;
   if (e.code === "KeyW") keys.w = true;
   if (e.code === "KeyS") keys.s = true;
-  if (e.code === "Space" && document.pointerLockElement === canvas) {
+  if (e.code === "Space") {
     e.preventDefault();
     jumpPressed = true;
   }
