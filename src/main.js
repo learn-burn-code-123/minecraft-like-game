@@ -12,6 +12,8 @@ const MAX_H_SPEED = 5.8;
 const WHEEL_IMPULSE = 2.2;
 const COIN_RADIUS = 0.55;
 const COIN_COLLECT_DIST = 1.15;
+/** Top of solid bedrock collider; grass pads stack from here so gaps still have collision. */
+const WORLD_FLOOR_TOP = 0.22;
 const PITCH_SENS = 0.00055;
 const MOUSE_STRAFE_GAIN = 0.00135;
 const YAW_KEY_SPEED = 1.05;
@@ -118,14 +120,14 @@ function addColliderBox(minX, minY, minZ, maxX, maxY, maxZ, material, castShadow
 
 function buildWorld() {
   const G = 160;
-  addColliderBox(-G, -1, -G, G, 0, G, grassMat, false);
+  addColliderBox(-G, -6, -G, G, WORLD_FLOOR_TOP, G, grassMat, false);
 
   function addGrassPad(minX, baseY, minZ, maxX, maxZ) {
     addColliderBox(minX, baseY, minZ, maxX, baseY + 0.45, maxZ, grassMat);
     addColliderBox(minX, baseY - 0.6, minZ, maxX, baseY, maxZ, dirtMat, false);
   }
 
-  addGrassPad(-10, 0, -12, 10, 14);
+  addGrassPad(-10, WORLD_FLOOR_TOP, -12, 10, 14);
 
   let px = 0;
   let pz = 16;
@@ -136,30 +138,48 @@ function buildWorld() {
   for (let i = 0; i < 52; i += 1) {
     const alongZ = i % 2 === 0;
     const lift = i % 11 === 5 ? 1.1 : i % 11 === 9 ? 2.3 : 0;
+    const padBase = WORLD_FLOOR_TOP + lift;
 
     if (alongZ) {
-      addGrassPad(px - half, lift, pz, px + half, pz + segLen);
+      addGrassPad(px - half, padBase, pz, px + half, pz + segLen);
       pz += segLen + gap;
     } else {
       const dir = i % 4 < 2 ? 1 : -1;
-      addGrassPad(px, lift, pz - half, px + dir * segLen, pz + half);
+      addGrassPad(px, padBase, pz - half, px + dir * segLen, pz + half);
       px += dir * (segLen + gap);
     }
 
+    const topOfWalk = padBase + 0.45;
     if (i % 7 === 2) {
-      addColliderBox(px - half - 2.2, 0, pz - 2.5, px - half - 0.35, 2.8, pz + 2.5, stoneMat);
+      addColliderBox(
+        px - half - 2.2,
+        WORLD_FLOOR_TOP,
+        pz - 2.5,
+        px - half - 0.35,
+        WORLD_FLOOR_TOP + 2.8,
+        pz + 2.5,
+        stoneMat
+      );
     }
     if (i % 7 === 5) {
-      addColliderBox(px + half + 0.35, 0, pz - 2.2, px + half + 2.2, 2.2, pz + 2.2, stoneMat);
+      addColliderBox(
+        px + half + 0.35,
+        WORLD_FLOOR_TOP,
+        pz - 2.2,
+        px + half + 2.2,
+        WORLD_FLOOR_TOP + 2.2,
+        pz + 2.2,
+        stoneMat
+      );
     }
     if (i % 9 === 4) {
-      addColliderBox(px - 1.2, lift + 0.45, pz - 1.2, px + 1.2, lift + 2.4, pz + 1.2, stoneMat);
+      addColliderBox(px - 1.2, topOfWalk, pz - 1.2, px + 1.2, topOfWalk + 1.95, pz + 1.2, stoneMat);
     }
   }
 
-  addGrassPad(px - 10, 0, pz - 10, px + 10, pz + 14);
+  addGrassPad(px - 10, WORLD_FLOOR_TOP, pz - 10, px + 10, pz + 14);
 
-  addDragon(12, 0, -4);
+  addDragon(12, WORLD_FLOOR_TOP, -4);
 }
 
 function addDragon(x, y, z) {
@@ -196,11 +216,12 @@ function addDragon(x, y, z) {
 }
 
 function spawnCoins() {
+  const padTop = (lift) => WORLD_FLOOR_TOP + lift + 0.45;
   const positions = [
-    [0, 1.1, 0],
-    [4, 1.1, 4],
-    [-4, 1.1, 6],
-    [2, 1.1, -4]
+    [0, padTop(0) + 0.55, 0],
+    [4, padTop(0) + 0.55, 4],
+    [-4, padTop(0) + 0.55, 6],
+    [2, padTop(0) + 0.55, -4]
   ];
 
   let cx = 0;
@@ -212,7 +233,7 @@ function spawnCoins() {
   for (let i = 0; i < 52; i += 1) {
     const alongZ = i % 2 === 0;
     const lift = i % 11 === 5 ? 1.1 : i % 11 === 9 ? 2.3 : 0;
-    const y = lift + 1.15;
+    const y = padTop(lift) + 0.55;
 
     positions.push([cx, y, cz + segLen * 0.35]);
     positions.push([cx + (alongZ ? 2.4 : -2.4), y, cz + segLen * 0.65]);
@@ -228,7 +249,7 @@ function spawnCoins() {
   for (let k = 0; k < 22; k += 1) {
     const ax = Math.sin(k * 1.55) * 16;
     const az = 24 + k * 10;
-    positions.push([ax, 1.25, az]);
+    positions.push([ax, padTop(0) + 0.58, az]);
   }
 
   const geo = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, 0.12, 20);
@@ -250,7 +271,7 @@ spawnCoins();
 let coinsCollected = 0;
 let gameWon = false;
 
-const spawnPoint = new THREE.Vector3(0, 0.05, 2);
+const spawnPoint = new THREE.Vector3(0, WORLD_FLOOR_TOP + 0.04, 2);
 const playerPos = spawnPoint.clone();
 const vel = new THREE.Vector3();
 
@@ -383,19 +404,18 @@ const tmpMin = new THREE.Vector3();
 const tmpMax = new THREE.Vector3();
 
 function aabbOverlap(minA, maxA, minB, maxB) {
+  const e = 0.02;
   return (
-    minA.x < maxB.x &&
-    maxA.x > minB.x &&
-    minA.y < maxB.y &&
-    maxA.y > minB.y &&
-    minA.z < maxB.z &&
-    maxA.z > minB.z
+    minA.x < maxB.x + e &&
+    maxA.x > minB.x - e &&
+    minA.y < maxB.y + e &&
+    maxA.y > minB.y - e &&
+    minA.z < maxB.z + e &&
+    maxA.z > minB.z - e
   );
 }
 
-function resolveCollisions() {
-  playerMinMax(tmpMin, tmpMax);
-
+function resolveCollisionsOnce() {
   for (let axis = 0; axis < 3; axis += 1) {
     for (const box of colliders) {
       playerMinMax(tmpMin, tmpMax);
@@ -427,6 +447,12 @@ function resolveCollisions() {
         }
       }
     }
+  }
+}
+
+function resolveCollisions() {
+  for (let pass = 0; pass < 5; pass += 1) {
+    resolveCollisionsOnce();
   }
 }
 
@@ -478,7 +504,7 @@ function updatePhysics(dt) {
   playerPos.y += vel.y * dt;
   resolveCollisions();
 
-  if (playerPos.y < -28) {
+  if (playerPos.y < WORLD_FLOOR_TOP - 8) {
     playerPos.copy(spawnPoint);
     vel.set(0, 0, 0);
   }
