@@ -500,9 +500,16 @@ requestAnimationFrame(tick);
 canvas.addEventListener("click", () => {
   if (!gameStarted || gameWon) return;
   if (document.pointerLockElement !== canvas) {
-    canvas.requestPointerLock?.().catch(() => {
+    try {
+      const p = canvas.requestPointerLock?.();
+      if (p && typeof p.catch === "function") {
+        p.catch(() => {
+          setHint("Move the mouse over the game to look. Space = jump.");
+        });
+      }
+    } catch {
       setHint("Move the mouse over the game to look. Space = jump.");
-    });
+    }
   }
 });
 
