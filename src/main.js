@@ -8,10 +8,13 @@ const GRAVITY = -28;
 const JUMP_SPEED = 9.5;
 const MOVE_ACCEL = 42;
 const MOVE_FRICTION = 10;
-const MAX_H_SPEED = 6.5;
-const WHEEL_IMPULSE = 2.8;
+const MAX_H_SPEED = 5.8;
+const WHEEL_IMPULSE = 2.2;
 const COIN_RADIUS = 0.55;
 const COIN_COLLECT_DIST = 1.15;
+const PITCH_SENS = 0.00055;
+const MOUSE_STRAFE_GAIN = 0.00135;
+const YAW_KEY_SPEED = 1.05;
 
 const app = document.querySelector("#app");
 
@@ -19,13 +22,15 @@ app.innerHTML = `
   <div id="overlay" class="overlay">
     <div class="overlay-card">
       <h1>Dragon Block Adventure — 3D</h1>
-      <p>Click <strong>Play</strong>, then <strong>click the blue game area once</strong> so the mouse can steer (browsers require this).</p>
+      <p>Click <strong>Play</strong> to start. Then <strong>click the blue game</strong> once if you want the mouse locked.</p>
       <ul class="overlay-list">
-        <li><strong>Mouse wheel</strong> — roll it to walk forward or backward (try both directions)</li>
-        <li><strong>Left click</strong> — jump when your feet are on a block</li>
-        <li><strong>Move the mouse</strong> — look around and steer across blocks and gaps</li>
+        <li><strong>Mouse left / right</strong> — step sideways (like Minecraft strafe)</li>
+        <li><strong>Mouse up / down</strong> — look up and down (slow and smooth)</li>
+        <li><strong>Arrow keys</strong> — turn left and right</li>
+        <li><strong>Mouse wheel</strong> — walk forward or backward</li>
+        <li><strong>Space</strong> — jump (left click also jumps when the mouse is locked)</li>
       </ul>
-      <p class="overlay-hint">Optional: <kbd>W</kbd> / <kbd>S</kbd> also move forward and back.</p>
+      <p class="overlay-hint">Optional: <kbd>W</kbd> <kbd>S</kbd> walk, <kbd>A</kbd> <kbd>D</kbd> strafe.</p>
       <button id="playBtn" type="button">Play</button>
     </div>
   </div>
@@ -54,9 +59,9 @@ const restartBtn = document.querySelector("#restartBtn");
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87ceeb);
-scene.fog = new THREE.Fog(0x87ceeb, 18, 55);
+scene.fog = new THREE.Fog(0x87ceeb, 40, 160);
 
-const camera = new THREE.PerspectiveCamera(70, 1, 0.08, 120);
+const camera = new THREE.PerspectiveCamera(70, 1, 0.08, 220);
 camera.rotation.order = "YXZ";
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -71,11 +76,11 @@ sun.position.set(12, 22, 8);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far = 60;
-sun.shadow.camera.left = -28;
-sun.shadow.camera.right = 28;
-sun.shadow.camera.top = 28;
-sun.shadow.camera.bottom = -28;
+sun.shadow.camera.far = 200;
+sun.shadow.camera.left = -90;
+sun.shadow.camera.right = 90;
+sun.shadow.camera.top = 90;
+sun.shadow.camera.bottom = -90;
 scene.add(sun);
 
 const colliders = [];
@@ -112,54 +117,49 @@ function addColliderBox(minX, minY, minZ, maxX, maxY, maxZ, material, castShadow
 }
 
 function buildWorld() {
-  addColliderBox(-40, -1, -40, 40, 0, 40, grassMat, false);
+  const G = 160;
+  addColliderBox(-G, -1, -G, G, 0, G, grassMat, false);
 
-  const course = [
-    { x: 0, z: 0, w: 5, d: 5, y: 0 },
-    { x: 0, z: 4.5, w: 3, d: 2.2, y: 0 },
-    { x: 0, z: 8.5, w: 4, d: 3, y: 0 },
-    { x: -2.5, z: 12, w: 3, d: 3, y: 1 },
-    { x: 2.5, z: 15, w: 3, d: 3, y: 0 },
-    { x: 0, z: 19, w: 5, d: 4, y: 0 },
-    { x: 0, z: 24, w: 2.5, d: 2, y: 2 },
-    { x: -3, z: 27, w: 3.5, d: 3, y: 0 },
-    { x: 3, z: 30, w: 3.5, d: 3, y: 1 },
-    { x: 0, z: 34, w: 6, d: 5, y: 0 }
-  ];
-
-  for (const p of course) {
-    const halfW = p.w / 2;
-    const halfD = p.d / 2;
-    const baseY = p.y ?? 0;
-    addColliderBox(
-      p.x - halfW,
-      baseY,
-      p.z - halfD,
-      p.x + halfW,
-      baseY + 0.45,
-      p.z + halfD,
-      grassMat
-    );
-    addColliderBox(
-      p.x - halfW,
-      baseY - 0.6,
-      p.z - halfD,
-      p.x + halfW,
-      baseY,
-      p.z + halfD,
-      dirtMat,
-      false
-    );
+  function addGrassPad(minX, baseY, minZ, maxX, maxZ) {
+    addColliderBox(minX, baseY, minZ, maxX, baseY + 0.45, maxZ, grassMat);
+    addColliderBox(minX, baseY - 0.6, minZ, maxX, baseY, maxZ, dirtMat, false);
   }
 
-  addColliderBox(-1.2, 0, 6, 1.2, 2.2, 1.2, stoneMat);
-  addColliderBox(2, 0, 10, 3.4, 1.4, 11.4, stoneMat);
-  addColliderBox(-3.5, 1, 16, -2.2, 2.6, 17.2, stoneMat);
-  addColliderBox(1.5, 0, 22, 3.8, 1.8, 24, stoneMat);
-  addColliderBox(-2.8, 2, 24, -1.2, 3.4, 25.2, stoneMat);
-  addColliderBox(-4, 0, 20, -3, 1.2, 28, stoneMat);
+  addGrassPad(-10, 0, -12, 10, 14);
 
-  addDragon(5.5, 0, -4);
+  let px = 0;
+  let pz = 16;
+  const half = 4.5;
+  const gap = 1.85;
+  const segLen = 6;
+
+  for (let i = 0; i < 52; i += 1) {
+    const alongZ = i % 2 === 0;
+    const lift = i % 11 === 5 ? 1.1 : i % 11 === 9 ? 2.3 : 0;
+
+    if (alongZ) {
+      addGrassPad(px - half, lift, pz, px + half, pz + segLen);
+      pz += segLen + gap;
+    } else {
+      const dir = i % 4 < 2 ? 1 : -1;
+      addGrassPad(px, lift, pz - half, px + dir * segLen, pz + half);
+      px += dir * (segLen + gap);
+    }
+
+    if (i % 7 === 2) {
+      addColliderBox(px - half - 2.2, 0, pz - 2.5, px - half - 0.35, 2.8, pz + 2.5, stoneMat);
+    }
+    if (i % 7 === 5) {
+      addColliderBox(px + half + 0.35, 0, pz - 2.2, px + half + 2.2, 2.2, pz + 2.2, stoneMat);
+    }
+    if (i % 9 === 4) {
+      addColliderBox(px - 1.2, lift + 0.45, pz - 1.2, px + 1.2, lift + 2.4, pz + 1.2, stoneMat);
+    }
+  }
+
+  addGrassPad(px - 10, 0, pz - 10, px + 10, pz + 14);
+
+  addDragon(12, 0, -4);
 }
 
 function addDragon(x, y, z) {
@@ -198,40 +198,44 @@ function addDragon(x, y, z) {
 function spawnCoins() {
   const positions = [
     [0, 1.1, 0],
-    [0, 1.2, 3],
-    [0, 1.2, 7],
-    [-2.2, 2.3, 12],
-    [2.4, 1.2, 15],
-    [0, 1.3, 19],
-    [0, 3.5, 24],
-    [-3, 1.3, 27],
-    [3, 2.3, 30],
-    [0, 1.4, 34],
-    [1.2, 1.5, 8],
-    [-1.5, 1.5, 5],
-    [2.6, 1.5, 19],
-    [-2, 1.5, 22],
-    [0, 1.5, 11],
-    [-2.8, 3.8, 24.5],
-    [3.2, 1.5, 28],
-    [-1, 1.5, 16],
-    [1.5, 1.5, 26],
-    [0, 1.5, 29],
-    [-3.2, 1.5, 31],
-    [2, 1.5, 6],
-    [0, 1.5, 14],
-    [1, 1.5, 32],
-    [-1.2, 1.5, 33],
-    [2.2, 1.5, 35],
-    [-2.5, 1.5, 35],
-    [0, 1.5, 36]
+    [4, 1.1, 4],
+    [-4, 1.1, 6],
+    [2, 1.1, -4]
   ];
 
+  let cx = 0;
+  let cz = 16;
+  const half = 4.5;
+  const gap = 1.85;
+  const segLen = 6;
+
+  for (let i = 0; i < 52; i += 1) {
+    const alongZ = i % 2 === 0;
+    const lift = i % 11 === 5 ? 1.1 : i % 11 === 9 ? 2.3 : 0;
+    const y = lift + 1.15;
+
+    positions.push([cx, y, cz + segLen * 0.35]);
+    positions.push([cx + (alongZ ? 2.4 : -2.4), y, cz + segLen * 0.65]);
+
+    if (alongZ) {
+      cz += segLen + gap;
+    } else {
+      const dir = i % 4 < 2 ? 1 : -1;
+      cx += dir * (segLen + gap);
+    }
+  }
+
+  for (let k = 0; k < 22; k += 1) {
+    const ax = Math.sin(k * 1.55) * 16;
+    const az = 24 + k * 10;
+    positions.push([ax, 1.25, az]);
+  }
+
   const geo = new THREE.CylinderGeometry(COIN_RADIUS, COIN_RADIUS, 0.12, 20);
-  for (const [cx, cy, cz] of positions) {
+  for (const [x, y, z] of positions) {
     const mesh = new THREE.Mesh(geo, coinMat.clone());
     mesh.rotation.x = Math.PI / 2;
-    mesh.position.set(cx, cy, cz);
+    mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.userData.spin = Math.random() * Math.PI * 2;
     mesh.userData.collected = false;
@@ -246,7 +250,7 @@ spawnCoins();
 let coinsCollected = 0;
 let gameWon = false;
 
-const spawnPoint = new THREE.Vector3(0, 0.05, 0);
+const spawnPoint = new THREE.Vector3(0, 0.05, 2);
 const playerPos = spawnPoint.clone();
 const vel = new THREE.Vector3();
 
@@ -255,9 +259,10 @@ let pitch = 0;
 const pitchClamp = Math.PI / 2 - 0.12;
 
 let wishForward = 0;
+let wishStrafe = 0;
 let jumpPressed = false;
 
-const keys = { w: false, s: false };
+const keys = { w: false, s: false, a: false, d: false, left: false, right: false };
 
 let gameStarted = false;
 
@@ -291,6 +296,11 @@ function forwardFlat() {
   v.y = 0;
   if (v.lengthSq() > 0.0001) v.normalize();
   return v;
+}
+
+function rightFlat() {
+  const f = forwardFlat();
+  return new THREE.Vector3(-f.z, 0, f.x);
 }
 
 function updateHUD() {
@@ -331,6 +341,8 @@ function restartGame() {
   vel.set(0, 0, 0);
   yaw = 0;
   pitch = 0;
+  wishForward = 0;
+  wishStrafe = 0;
   coinsCollected = 0;
   for (const mesh of coins) {
     mesh.userData.collected = false;
@@ -421,9 +433,16 @@ function resolveCollisions() {
 function updatePhysics(dt) {
   if (!gameStarted || gameWon) return;
 
+  if (keys.left) yaw += YAW_KEY_SPEED * dt;
+  if (keys.right) yaw -= YAW_KEY_SPEED * dt;
+
   const forward = forwardFlat();
+  const right = rightFlat();
   const inputFwd = wishForward + (keys.w ? 1 : 0) - (keys.s ? 1 : 0);
-  const target = forward.clone().multiplyScalar(inputFwd * MAX_H_SPEED);
+  const inputStrafe = wishStrafe + (keys.a ? 1 : 0) - (keys.d ? 1 : 0);
+  const target = new THREE.Vector3()
+    .addScaledVector(forward, inputFwd * MAX_H_SPEED)
+    .addScaledVector(right, inputStrafe * MAX_H_SPEED);
 
   vel.x += (target.x - vel.x) * Math.min(1, MOVE_ACCEL * dt);
   vel.z += (target.z - vel.z) * Math.min(1, MOVE_ACCEL * dt);
@@ -435,7 +454,7 @@ function updatePhysics(dt) {
     vel.z *= s;
   }
 
-  if (inputFwd === 0) {
+  if (inputFwd === 0 && inputStrafe === 0) {
     const fr = Math.exp(-MOVE_FRICTION * dt);
     vel.x *= fr;
     vel.z *= fr;
@@ -459,12 +478,13 @@ function updatePhysics(dt) {
   playerPos.y += vel.y * dt;
   resolveCollisions();
 
-  if (playerPos.y < -12) {
+  if (playerPos.y < -28) {
     playerPos.copy(spawnPoint);
     vel.set(0, 0, 0);
   }
 
   wishForward *= Math.exp(-4 * dt);
+  wishStrafe *= Math.exp(-4 * dt);
 }
 
 function syncCamera() {
@@ -514,24 +534,24 @@ canvas.addEventListener("click", () => {
 });
 
 playBtn.addEventListener("click", () => {
-  overlay.classList.add("hidden");
+  overlay.remove();
   hud.classList.remove("hidden");
   gameStarted = true;
   canvas.focus();
-  setHint("Click the blue game once, then move the mouse. Wheel = walk. Space = jump.");
+  setHint("Arrows = turn. Mouse = side step + look. Wheel = walk. Space = jump. Click game to lock mouse.");
 });
 
 restartBtn.addEventListener("click", () => {
   restartGame();
   document.exitPointerLock?.();
-  setHint("Click the blue game once, then move the mouse.");
+  setHint("Arrows = turn. Mouse = side step + look. Wheel = walk. Space = jump.");
 });
 
 document.addEventListener("pointerlockchange", () => {
   if (document.pointerLockElement === canvas) {
-    setHint("Coins: collect 20. Wheel = walk. Left click or Space = jump. Esc = free mouse.");
+    setHint("Coins: 20 to win. Arrows turn. Mouse strafes / looks. Esc frees mouse.");
   } else if (gameStarted && !gameWon) {
-    setHint("Click the game to grab the mouse again, or move over it to look.");
+    setHint("Click the game to lock the mouse again, or play without lock.");
   }
 });
 
@@ -544,12 +564,13 @@ document.addEventListener("pointerlockerror", () => {
 document.addEventListener("mousemove", (e) => {
   if (!gameStarted || gameWon) return;
 
-  if (document.pointerLockElement === canvas) {
-    yaw -= e.movementX * 0.0022;
-    pitch -= e.movementY * 0.0022;
-  } else if (pointerOverCanvas(e)) {
-    yaw -= e.movementX * 0.0022;
-    pitch -= e.movementY * 0.0022;
+  const active =
+    document.pointerLockElement === canvas || pointerOverCanvas(e);
+
+  if (active) {
+    wishStrafe += e.movementX * MOUSE_STRAFE_GAIN;
+    wishStrafe = Math.max(-1.25, Math.min(1.25, wishStrafe));
+    pitch -= e.movementY * PITCH_SENS;
   }
 
   pitch = Math.max(-pitchClamp, Math.min(pitchClamp, pitch));
@@ -579,6 +600,16 @@ document.addEventListener("keydown", (e) => {
   if (!gameStarted || gameWon) return;
   if (e.code === "KeyW") keys.w = true;
   if (e.code === "KeyS") keys.s = true;
+  if (e.code === "KeyA") keys.a = true;
+  if (e.code === "KeyD") keys.d = true;
+  if (e.code === "ArrowLeft") {
+    e.preventDefault();
+    keys.left = true;
+  }
+  if (e.code === "ArrowRight") {
+    e.preventDefault();
+    keys.right = true;
+  }
   if (e.code === "Space") {
     e.preventDefault();
     jumpPressed = true;
@@ -588,6 +619,10 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("keyup", (e) => {
   if (e.code === "KeyW") keys.w = false;
   if (e.code === "KeyS") keys.s = false;
+  if (e.code === "KeyA") keys.a = false;
+  if (e.code === "KeyD") keys.d = false;
+  if (e.code === "ArrowLeft") keys.left = false;
+  if (e.code === "ArrowRight") keys.right = false;
 });
 
 updateHUD();
