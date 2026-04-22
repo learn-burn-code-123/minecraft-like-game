@@ -1,0 +1,152 @@
+:root {
+  font-family: "Comic Sans MS", "Trebuchet MS", Arial, sans-serif;
+  color: #2f2440;
+  background: #1a1028;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  cursor: crosshair;
+  outline: none;
+}
+
+.hud {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  background: #ffffffe8;
+  border: 3px solid #7552bd;
+  border-radius: 12px;
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.hud.hidden,
+.win-screen.hidden {
+  display: none;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 12, 40, 0.72);
+  padding: 1rem;
+}
+
+.overlay-card {
+  max-width: 520px;
+  background: #fffef8;
+  border: 4px solid #7552bd;
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.overlay-card h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  text-align: center;
+}
+
+.overlay-card p {
+  margin: 0.4rem 0;
+  line-height: 1.45;
+}
+
+.overlay-list {
+  margin: 0.6rem 0 0.75rem;
+  padding-left: 1.25rem;
+  line-height: 1.55;
+}
+
+.overlay-hint {
+  font-size: 0.9rem;
+  color: #4a3d5c;
+}
+
+kbd {
+  padding: 0.12rem 0.35rem;
+  border: 2px solid #9a86b8;
+  border-radius: 6px;
+  background: #f3ecff;
+  font-size: 0.85em;
+}
+
+button {
+  font: inherit;
+  border: 2px solid #6348a5;
+  border-radius: 10px;
+  background: #7d5dcc;
+  color: #fff;
+  padding: 0.55rem 1.25rem;
+  cursor: pointer;
+  font-weight: 700;
+  display: block;
+  margin: 1rem auto 0;
+}
+
+button:hover {
+  background: #6a4fb8;
+}
+
+.win-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 6, 24, 0.55);
+  padding: 1rem;
+}
+
+.win-card {
+  max-width: 400px;
+  text-align: center;
+  background: #fff8e7;
+  border: 4px solid #e6a800;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+}
+
+.win-card h2 {
+  margin: 0 0 0.5rem;
+  color: #b8860b;
+}
+
+.win-card p {
+  margin: 0.5rem 0 1rem;
+  line-height: 1.5;
+}

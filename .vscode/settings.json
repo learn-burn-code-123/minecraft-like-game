@@ -1,0 +1,10 @@
+{
+  "livePreview.defaultPreviewPath": "index.html",
+  "livePreview.autoRefreshPreview": true,
+  "portsAttributes": {
+    "5173": {
+      "label": "Dragon Block Adventure",
+      "onAutoForward": "openPreview"
+    }
+  }
+}
